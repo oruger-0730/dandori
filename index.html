@@ -418,21 +418,42 @@ const PACE_LABEL = {
 let TASKS = [];
 let STORE_OK = true;
 
+const HAS_ARTIFACT_STORAGE = (typeof window.storage !== 'undefined' && window.storage !== null);
+
 async function loadTasks(){
   try{
-    const res = await window.storage.get('dandori-tasks', false);
-    return res ? JSON.parse(res.value) : [];
+    if(HAS_ARTIFACT_STORAGE){
+      const res = await window.storage.get('dandori-tasks', false);
+      return res ? JSON.parse(res.value) : [];
+    }
+    const r = await fetch('/api/tasks');
+    if(!r.ok) throw new Error('load failed: ' + r.status);
+    return await r.json();
   }catch(e){
+    console.error('読み込みに失敗しました', e);
     return [];
   }
 }
 function sleep(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
 
+async function saveTasksOnce(){
+  if(HAS_ARTIFACT_STORAGE){
+    const res = await window.storage.set('dandori-tasks', JSON.stringify(TASKS), false);
+    if(!res){ throw new Error('empty response'); }
+    return;
+  }
+  const r = await fetch('/api/tasks', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(TASKS)
+  });
+  if(!r.ok){ throw new Error('save failed: ' + r.status); }
+}
+
 async function saveTasks(attempt){
   attempt = attempt || 1;
   try{
-    const res = await window.storage.set('dandori-tasks', JSON.stringify(TASKS), false);
-    if(!res){ throw new Error('empty response'); }
+    await saveTasksOnce();
     STORE_OK = true;
     hideSaveBanner();
     return true;
