@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>だんどり — 締切から逆算するやることプランナー</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=IBM+Plex+Sans+JP:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#ECEFE7;
+    --grid:rgba(34,48,41,0.055);
+    --panel:#FFFFFF;
+    --ink:#22303D;
+    --ink-soft:#5B6A66;
+    --ink-faint:#8B9691;
+    --line:#D9D6C7;
+    --accent:#6B4E71;
+    --accent-soft:#EFE6EF;
+    --ontrack:#4F7A5B;
+    --ontrack-soft:#E5EDE6;
+    --warn:#B0791E;
+    --warn-soft:#F5EBD8;
+    --danger:#AE4127;
+    --danger-soft:#F4E2DB;
+    --radius:10px;
+    --font-display:'Fraunces', serif;
+    --font-body:'IBM Plex Sans JP','IBM Plex Sans',sans-serif;
+    --font-mono:'IBM Plex Mono',monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background-color:var(--bg);
+    background-image:
+      linear-gradient(var(--grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size:28px 28px;
+    color:var(--ink);
+    font-family:var(--font-body);
+    font-size:15px;
+    line-height:1.6;
+    min-height:100vh;
+  }
+  a{color:var(--accent);}
+  button{font-family:var(--font-body);}
+  input,select{font-family:var(--font-mono);}
+
+  .app{display:flex;min-height:100vh;max-width:1100px;margin:0 auto;}
+
+  /* ---- サイドナビ ---- */
+  .rail{
+    width:196px;flex:none;padding:28px 14px;display:flex;flex-direction:column;gap:26px;
+    border-right:1px solid var(--line);
+  }
+  .brand{padding:0 8px;}
+  .brand .mark{font-family:var(--font-display);font-weight:600;font-size:22px;letter-spacing:0.01em;}
+  .brand .sub{font-size:11.5px;color:var(--ink-faint);margin-top:2px;line-height:1.4;}
+  .nav{display:flex;flex-direction:column;gap:4px;}
+  .nav button{
+    all:unset;cursor:pointer;padding:9px 10px;border-radius:8px;font-size:14px;color:var(--ink-soft);
+    display:flex;align-items:center;gap:9px;
+  }
+  .nav button .dot{width:6px;height:6px;border-radius:50%;background:var(--line);flex:none;}
+  .nav button.active{background:var(--panel);color:var(--ink);font-weight:500;box-shadow:0 0 0 1px var(--line);}
+  .nav button.active .dot{background:var(--accent);}
+  .nav button:hover:not(.active){background:rgba(255,255,255,0.5);}
+
+  .rail-foot{margin-top:auto;font-size:11px;color:var(--ink-faint);padding:0 8px;line-height:1.5;}
+
+  /* ---- メイン ---- */
+  .main{flex:1;min-width:0;padding:32px 36px 80px;}
+  .view{display:none;}
+  .view.active{display:block;}
+
+  .hero{margin-bottom:28px;}
+  .hero .date{font-family:var(--font-mono);font-size:13px;color:var(--ink-faint);letter-spacing:0.03em;}
+  .hero h1{font-family:var(--font-display);font-weight:600;font-size:30px;margin:6px 0 10px;}
+  .hero .msg{font-size:14.5px;color:var(--ink-soft);max-width:56ch;}
+
+  .barwrap{height:6px;border-radius:4px;background:var(--line);overflow:hidden;margin-top:16px;max-width:420px;}
+  .barwrap > i{display:block;height:100%;background:var(--accent);border-radius:4px;transition:width .3s;}
+
+  h2.section-title{
+    font-family:var(--font-display);font-weight:600;font-size:17px;margin:34px 0 12px;
+    display:flex;align-items:baseline;gap:8px;
+  }
+  h2.section-title .count{font-family:var(--font-mono);font-size:12px;color:var(--ink-faint);font-weight:400;}
+
+  .card{
+    background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+    padding:16px 18px;margin-bottom:10px;
+  }
+
+  .task-row{
+    display:flex;align-items:center;gap:14px;background:var(--panel);
+    border:1px solid var(--line);border-left:4px solid var(--line);border-radius:8px;
+    padding:13px 16px;margin-bottom:9px;flex-wrap:wrap;
+  }
+  .task-row .info{flex:1;min-width:180px;}
+  .task-row .name{font-weight:500;font-size:14.5px;}
+  .task-row .meta{font-size:12px;color:var(--ink-faint);margin-top:3px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+  .badge{
+    font-size:11px;padding:2px 8px;border-radius:20px;font-weight:500;white-space:nowrap;
+  }
+  .badge.subject{}
+  .badge.flag-overdue{background:var(--danger-soft);color:var(--danger);}
+  .badge.flag-carried{background:var(--warn-soft);color:var(--warn);}
+
+  .target{font-family:var(--font-mono);font-size:13px;color:var(--ink-soft);white-space:nowrap;}
+  .target b{font-size:16px;color:var(--ink);font-weight:600;}
+
+  .row-actions{display:flex;align-items:center;gap:6px;}
+  .num-input{
+    width:64px;height:32px;border:1px solid var(--line);border-radius:7px;background:var(--bg);
+    text-align:center;font-size:13px;color:var(--ink);
+  }
+  .num-input:focus{outline:2px solid var(--accent-soft);border-color:var(--accent);}
+  .btn{
+    border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:7px;
+    padding:7px 12px;font-size:12.5px;cursor:pointer;white-space:nowrap;
+  }
+  .btn:hover{border-color:var(--ink-faint);}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;}
+  .btn.primary:hover{opacity:0.92;}
+  .btn.ghost{background:transparent;border-color:transparent;color:var(--ink-faint);padding:7px 8px;}
+  .btn.ghost:hover{color:var(--danger);}
+  .btn.small{padding:5px 10px;font-size:12px;}
+
+  .done-tag{font-size:12px;color:var(--ontrack);font-weight:500;display:flex;align-items:center;gap:5px;}
+  .saved-flash{font-size:11.5px;color:var(--ontrack);}
+
+  .empty{
+    border:1px dashed var(--line);border-radius:var(--radius);padding:30px 20px;text-align:center;
+    color:var(--ink-soft);font-size:13.5px;
+  }
+  .empty a.btn{display:inline-block;margin-top:12px;text-decoration:none;}
+
+  /* ---- タスク追加フォーム ---- */
+  .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  .field{display:flex;flex-direction:column;gap:6px;}
+  .field.full{grid-column:1 / -1;}
+  .field label{font-size:12.5px;color:var(--ink-soft);}
+  .field input[type=text],.field input[type=number],.field input[type=date]{
+    height:36px;border:1px solid var(--line);border-radius:7px;padding:0 11px;font-size:13.5px;
+    background:var(--bg);color:var(--ink);font-family:var(--font-body);
+  }
+  .field input[type=number]{font-family:var(--font-mono);}
+  .field input:focus{outline:2px solid var(--accent-soft);border-color:var(--accent);}
+  .type-toggle{display:flex;gap:8px;}
+  .type-toggle label{
+    flex:1;border:1px solid var(--line);border-radius:7px;padding:9px 10px;font-size:12.5px;
+    text-align:center;cursor:pointer;color:var(--ink-soft);
+  }
+  .type-toggle input{display:none;}
+  .type-toggle input:checked + span{color:var(--accent);font-weight:600;}
+  .type-toggle label:has(input:checked){border-color:var(--accent);background:var(--accent-soft);}
+  .type-toggle .hint{display:block;font-size:10.5px;color:var(--ink-faint);margin-top:2px;font-weight:400;}
+  .error-text{font-size:12px;color:var(--danger);min-height:14px;}
+
+  .progress-bar-mini{height:5px;border-radius:3px;background:var(--line);overflow:hidden;width:120px;flex:none;}
+  .progress-bar-mini > i{display:block;height:100%;border-radius:3px;background:var(--ink-soft);}
+
+  .stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:26px;}
+  .stat-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px;}
+  .stat-card .label{font-size:12px;color:var(--ink-faint);}
+  .stat-card .num{font-family:var(--font-mono);font-size:24px;margin-top:4px;font-weight:500;}
+
+  .detail-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;margin-bottom:12px;}
+  .detail-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:10px;flex-wrap:wrap;}
+  .detail-head .name{font-weight:500;font-size:14px;}
+  .daybars{display:flex;align-items:flex-end;gap:3px;height:46px;margin-top:12px;}
+  .daybars .col{flex:1;background:var(--line);border-radius:2px 2px 0 0;min-height:2px;position:relative;}
+  .daybars .col.has{background:var(--accent);}
+  .daylabels{display:flex;gap:3px;margin-top:3px;}
+  .daylabels span{flex:1;text-align:center;font-size:9px;color:var(--ink-faint);font-family:var(--font-mono);}
+
+  .archived-toggle{font-size:12.5px;color:var(--ink-faint);cursor:pointer;margin:22px 0 8px;display:inline-block;}
+  .loading{padding:60px 0;text-align:center;color:var(--ink-faint);font-size:13px;}
+
+  @media (max-width: 780px){
+    .app{flex-direction:column;}
+    .rail{
+      width:100%;flex-direction:row;align-items:center;padding:14px 16px;gap:14px;
+      border-right:none;border-bottom:1px solid var(--line);
+    }
+    .brand{padding:0;}
+    .brand .sub{display:none;}
+    .nav{flex-direction:row;}
+    .rail-foot{display:none;}
+    .main{padding:22px 16px 60px;}
+    .form-grid{grid-template-columns:1fr;}
+    .stat-grid{grid-template-columns:1fr 1fr;}
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <nav class="rail">
+    <div class="brand">
+      <div class="mark">だんどり</div>
+      <div class="sub">締切から逆算して、今日やることだけを出す。</div>
+    </div>
+    <div class="nav" id="nav">
+      <button data-view="today" class="active"><span class="dot"></span>今日</button>
+      <button data-view="tasks"><span class="dot"></span>タスク</button>
+      <button data-view="progress"><span class="dot"></span>進捗</button>
+    </div>
+    <div class="rail-foot">データはこの端末のブラウザ内に保存されます。</div>
+  </nav>
+
+  <main class="main">
+
+    <div id="loading" class="loading">読み込み中…</div>
+
+    <div id="save-banner" style="display:none;background:var(--danger-soft);border:1px solid var(--danger);color:var(--danger);border-radius:var(--radius);padding:12px 16px;margin-bottom:18px;font-size:13px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+      <span id="save-banner-text">保存に失敗しました。この画面には反映されていますが、端末には保存されていません。</span>
+      <button class="btn small" id="save-retry" style="border-color:var(--danger);color:var(--danger);">再試行</button>
+    </div>
+
+    <!-- 今日ビュー -->
+    <section class="view" id="view-today">
+      <div class="hero">
+        <div class="date" id="today-date"></div>
+        <h1>今日やること</h1>
+        <div class="msg" id="today-msg"></div>
+        <div class="barwrap"><i id="today-bar" style="width:0%"></i></div>
+      </div>
+
+      <h2 class="section-title">小分けにコツコツ <span class="count" id="split-count"></span></h2>
+      <div id="split-list"></div>
+
+      <h2 class="section-title">今日中に集中 <span class="count" id="single-count"></span></h2>
+      <div id="single-list"></div>
+    </section>
+
+    <!-- タスクビュー -->
+    <section class="view" id="view-tasks">
+      <div class="hero" style="margin-bottom:20px;">
+        <h1 style="font-size:26px;">タスクを管理</h1>
+        <div class="msg">数学や物理のような問題集は「小分け型」、レポートのように一気に仕上げたいものは「集中型」で登録してください。</div>
+      </div>
+
+      <div class="card">
+        <div class="form-grid">
+          <div class="field full">
+            <label for="f-name">タスク名</label>
+            <input type="text" id="f-name" placeholder="例：数学ワーク 第3章">
+          </div>
+          <div class="field">
+            <label for="f-subject">科目・カテゴリ</label>
+            <input type="text" id="f-subject" placeholder="例：数学">
+          </div>
+          <div class="field">
+            <label for="f-deadline">締切日</label>
+            <input type="date" id="f-deadline">
+          </div>
+          <div class="field full">
+            <label>進め方</label>
+            <div class="type-toggle">
+              <label><input type="radio" name="f-type" value="split" checked><span>小分け型</span><span class="hint">総量を締切まで均等に配分</span></label>
+              <label><input type="radio" name="f-type" value="single"><span>集中型</span><span class="hint">1日でまとめて終わらせる</span></label>
+            </div>
+          </div>
+          <div class="field">
+            <label for="f-amount">総量</label>
+            <input type="number" id="f-amount" min="1" step="1" placeholder="例：30">
+          </div>
+          <div class="field">
+            <label for="f-unit">単位</label>
+            <input type="text" id="f-unit" placeholder="例：ページ／問／字">
+          </div>
+        </div>
+        <div class="error-text" id="f-error"></div>
+        <button class="btn primary" id="f-submit" style="margin-top:4px;">タスクを追加</button>
+      </div>
+
+      <h2 class="section-title">進行中 <span class="count" id="active-count"></span></h2>
+      <div id="active-list"></div>
+      <div id="active-empty" class="empty" style="display:none;">
+        まだタスクがありません。上のフォームから最初の一つを登録しましょう。
+      </div>
+
+      <span class="archived-toggle" id="archived-toggle">完了したタスクを表示 ▾</span>
+      <div id="archived-list" style="display:none;"></div>
+    </section>
+
+    <!-- 進捗ビュー -->
+    <section class="view" id="view-progress">
+      <div class="hero" style="margin-bottom:20px;">
+        <h1 style="font-size:26px;">進捗</h1>
+        <div class="msg">各タスクの達成度と、直近14日間の記録です。</div>
+      </div>
+
+      <div class="stat-grid">
+        <div class="stat-card"><div class="label">進行中のタスク</div><div class="num" id="stat-active">0</div></div>
+        <div class="stat-card"><div class="label">平均達成率</div><div class="num" id="stat-rate">0%</div></div>
+        <div class="stat-card"><div class="label">直近7日の記録日数</div><div class="num" id="stat-days">0</div></div>
+      </div>
+
+      <div id="progress-list"></div>
+      <div id="progress-empty" class="empty" style="display:none;">
+        タスクを追加すると、ここに進捗が表示されます。
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+/* ===================== ユーティリティ ===================== */
+function pad(n){ return String(n).padStart(2,'0'); }
+function toDateStr(d){ return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
+function todayStr(){ return toDateStr(new Date()); }
+function parseDateStr(s){ const p=s.split('-').map(Number); return new Date(p[0], p[1]-1, p[2]); }
+function addDays(s, n){ const d=parseDateStr(s); d.setDate(d.getDate()+n); return toDateStr(d); }
+function daysBetween(s1, s2){ return Math.round((parseDateStr(s2) - parseDateStr(s1)) / 86400000); }
+function clampNum(n, lo, hi){ return Math.max(lo, Math.min(hi, n)); }
+function uid(){ return 't' + Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
+function fmtDateJP(s){
+  const d = parseDateStr(s);
+  const w = ['日','月','火','水','木','金','土'][d.getDay()];
+  return (d.getMonth()+1)+'月'+d.getDate()+'日('+w+')';
+}
+function fmtShortDate(s){ const d=parseDateStr(s); return (d.getMonth()+1)+'/'+d.getDate(); }
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+  });
+}
+
+const SUBJECT_PALETTE = [
+  {fg:'#3F6690', bg:'#E6EDF3'},
+  {fg:'#2F7A68', bg:'#E2EFEA'},
+  {fg:'#6B7A3A', bg:'#EDF0DE'},
+  {fg:'#5A5A9E', bg:'#E9E9F4'},
+  {fg:'#9E5A72', bg:'#F3E7EC'},
+  {fg:'#5A6B7A', bg:'#E8EBED'},
+];
+function subjectStyle(name){
+  let h = 0;
+  for(let i=0;i<name.length;i++){ h = (h*31 + name.charCodeAt(i)) >>> 0; }
+  return SUBJECT_PALETTE[h % SUBJECT_PALETTE.length];
+}
+
+/* ===================== コアロジック ===================== */
+function completedAmount(task){
+  let sum = 0;
+  for(const k in task.dailyLog){ sum += (task.dailyLog[k] || 0); }
+  return sum;
+}
+function remainingAmount(task){ return Math.max(0, task.totalAmount - completedAmount(task)); }
+function isDone(task){ return completedAmount(task) >= task.totalAmount; }
+
+function computeSingleAssignments(tasks, today){
+  const list = tasks.filter(function(t){ return !t.archived && t.type === 'single' && !isDone(t); });
+  list.sort(function(a,b){ return a.deadline.localeCompare(b.deadline); });
+  const taken = new Set();
+  const assigned = {};
+  list.forEach(function(t){
+    let d = t.deadline < today ? today : t.deadline;
+    while(taken.has(d) && d > today){ d = addDays(d, -1); }
+    taken.add(d);
+    assigned[t.id] = d;
+  });
+  return assigned;
+}
+
+function computeSplitTarget(task, today){
+  const remain = remainingAmount(task);
+  if(remain <= 0) return 0;
+  const remainDays = Math.max(1, daysBetween(today, task.deadline) + 1);
+  return Math.min(remain, Math.ceil(remain / remainDays));
+}
+
+function getTodayList(tasks, today){
+  const singleAssign = computeSingleAssignments(tasks, today);
+  const items = [];
+  tasks.forEach(function(t){
+    if(t.archived || isDone(t)) return;
+    if(t.type === 'split'){
+      const planned = computeSplitTarget(t, today);
+      if(planned > 0){ items.push({ taskId:t.id, planned:planned, overdue:t.deadline < today, carried:false }); }
+    } else {
+      if(singleAssign[t.id] === today){
+        const planned = remainingAmount(t);
+        items.push({ taskId:t.id, planned:planned, overdue:t.deadline < today, carried:t.deadline < today });
+      }
+    }
+  });
+  return items;
+}
+
+function paceStatus(task, today){
+  if(isDone(task)) return 'complete';
+  if(task.deadline < today) return 'overdue';
+  const totalDays = Math.max(1, daysBetween(task.createdDate, task.deadline) + 1);
+  const elapsed = clampNum(daysBetween(task.createdDate, today), 0, totalDays);
+  if(task.totalAmount <= 0) return 'onpace';
+  const expected = task.totalAmount * (elapsed / totalDays);
+  const done = completedAmount(task);
+  const diffRatio = (done - expected) / task.totalAmount;
+  if(diffRatio > 0.08) return 'ahead';
+  if(diffRatio < -0.08) return 'behind';
+  return 'onpace';
+}
+const PACE_LABEL = {
+  complete:{ text:'完了', cls:'ontrack' },
+  overdue:{ text:'期限超過', cls:'danger' },
+  ahead:{ text:'絶好調', cls:'ontrack' },
+  onpace:{ text:'順調', cls:'ontrack' },
+  behind:{ text:'やや遅れ', cls:'warn' },
+};
+
+/* ===================== 状態 & 永続化 ===================== */
+let TASKS = [];
+let STORE_OK = true;
+
+async function loadTasks(){
+  try{
+    const res = await window.storage.get('dandori-tasks', false);
+    return res ? JSON.parse(res.value) : [];
+  }catch(e){
+    return [];
+  }
+}
+function sleep(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
+
+async function saveTasks(attempt){
+  attempt = attempt || 1;
+  try{
+    const res = await window.storage.set('dandori-tasks', JSON.stringify(TASKS), false);
+    if(!res){ throw new Error('empty response'); }
+    STORE_OK = true;
+    hideSaveBanner();
+    return true;
+  }catch(e){
+    console.error('保存に失敗しました (試行'+attempt+'回目)', e);
+    if(attempt < 3){
+      await sleep(500 * attempt);
+      return saveTasks(attempt + 1);
+    }
+    STORE_OK = false;
+    showSaveBanner();
+    return false;
+  }
+}
+
+function showSaveBanner(){
+  document.getElementById('save-banner').style.display = 'flex';
+}
+function hideSaveBanner(){
+  document.getElementById('save-banner').style.display = 'none';
+}
+document.getElementById('save-retry').addEventListener('click', async function(){
+  this.textContent = '再試行中…';
+  const ok = await saveTasks();
+  this.textContent = '再試行';
+  if(ok){ render(); }
+});
+
+/* ===================== レンダリング ===================== */
+function render(){
+  renderToday();
+  renderTasksView();
+  renderProgress();
+}
+
+function renderToday(){
+  const today = todayStr();
+  document.getElementById('today-date').textContent = fmtDateJP(today);
+
+  const items = getTodayList(TASKS, today);
+  const split = items.filter(function(i){ return TASKS.find(function(t){return t.id===i.taskId;}).type==='split'; });
+  const single = items.filter(function(i){ return TASKS.find(function(t){return t.id===i.taskId;}).type==='single'; });
+
+  document.getElementById('split-count').textContent = split.length ? '('+split.length+')' : '';
+  document.getElementById('single-count').textContent = single.length ? '('+single.length+')' : '';
+
+  const totalPlanned = items.reduce(function(s,i){ return s + i.planned; }, 0);
+  let totalActual = 0;
+  items.forEach(function(i){
+    const t = TASKS.find(function(t){return t.id===i.taskId;});
+    totalActual += (t.dailyLog[today] || 0);
+  });
+  const pct = totalPlanned > 0 ? clampNum(Math.round(totalActual/totalPlanned*100), 0, 100) : 0;
+  document.getElementById('today-bar').style.width = pct + '%';
+
+  const msgEl = document.getElementById('today-msg');
+  if(items.length === 0){
+    msgEl.textContent = TASKS.filter(function(t){return !t.archived;}).length === 0
+      ? '登録されたタスクはまだありません。「タスク」から締切を入れて登録しましょう。'
+      : '今日やる分はありません。ゆっくりどうぞ。';
+  } else if(pct >= 100){
+    msgEl.textContent = '今日の分は完了しています。お疲れさまでした。';
+  } else {
+    msgEl.textContent = '今日の合計は '+totalPlanned+' 件分。終わらなかった分は明日以降のペースに自動で反映されます。';
+  }
+
+  document.getElementById('split-list').innerHTML = split.length
+    ? split.map(function(i){ return renderTodayRow(i, today); }).join('')
+    : emptyHtml('小分け型のタスクで今日やる分はありません。');
+  document.getElementById('single-list').innerHTML = single.length
+    ? single.map(function(i){ return renderTodayRow(i, today); }).join('')
+    : emptyHtml('集中型のタスクで今日に割り当てられたものはありません。');
+
+  bindTodayRowEvents();
+}
+
+function emptyHtml(text){
+  return '<div class="empty">'+escapeHtml(text)+'</div>';
+}
+
+function renderTodayRow(item, today){
+  const t = TASKS.find(function(t){ return t.id === item.taskId; });
+  const sc = subjectStyle(t.subject || 'その他');
+  const already = t.dailyLog[today];
+  const alreadyLogged = typeof already === 'number';
+  const flags = [];
+  if(item.carried) flags.push('<span class="badge flag-carried">繰越</span>');
+  else if(item.overdue) flags.push('<span class="badge flag-overdue">期限超過</span>');
+
+  return (
+    '<div class="task-row" style="border-left-color:'+sc.fg+'" data-task="'+t.id+'">'
+    + '<div class="info">'
+      + '<div class="name">'+escapeHtml(t.name)+'</div>'
+      + '<div class="meta">'
+        + '<span class="badge subject" style="background:'+sc.bg+';color:'+sc.fg+'">'+escapeHtml(t.subject||'その他')+'</span>'
+        + '<span>締切 '+fmtShortDate(t.deadline)+'</span>'
+        + flags.join('')
+      + '</div>'
+    + '</div>'
+    + '<div class="target">今日の目安<br><b>'+item.planned+'</b> '+escapeHtml(t.unit||'')+'</div>'
+    + '<div class="row-actions">'
+      + '<input type="number" class="num-input" min="0" step="1" value="'+(alreadyLogged?already:item.planned)+'" data-input="'+t.id+'">'
+      + '<button class="btn small" data-complete="'+t.id+'" data-planned="'+item.planned+'">完了</button>'
+      + '<button class="btn small primary" data-save="'+t.id+'">記録</button>'
+    + '</div>'
+    + '<span class="saved-flash" id="flash-'+t.id+'">'+(alreadyLogged?'記録済み':'')+'</span>'
+    + '</div>'
+  );
+}
+
+function bindTodayRowEvents(){
+  document.querySelectorAll('[data-complete]').forEach(function(btn){
+    btn.onclick = function(){
+      const id = btn.getAttribute('data-complete');
+      const planned = Number(btn.getAttribute('data-planned'));
+      const input = document.querySelector('[data-input="'+id+'"]');
+      input.value = planned;
+      saveDaily(id, planned);
+    };
+  });
+  document.querySelectorAll('[data-save]').forEach(function(btn){
+    btn.onclick = function(){
+      const id = btn.getAttribute('data-save');
+      const input = document.querySelector('[data-input="'+id+'"]');
+      const val = Number(input.value);
+      if(isNaN(val) || val < 0){
+        input.style.borderColor = 'var(--danger)';
+        return;
+      }
+      saveDaily(id, val);
+    };
+  });
+}
+
+async function saveDaily(taskId, value){
+  const t = TASKS.find(function(t){ return t.id === taskId; });
+  if(!t) return;
+  t.dailyLog[todayStr()] = value;
+  await saveTasks();
+  render();
+}
+
+function renderTasksView(){
+  const today = todayStr();
+  const active = TASKS.filter(function(t){ return !t.archived; });
+  const archived = TASKS.filter(function(t){ return t.archived; });
+
+  document.getElementById('active-count').textContent = active.length ? '('+active.length+')' : '';
+  document.getElementById('active-empty').style.display = active.length ? 'none' : 'block';
+
+  document.getElementById('active-list').innerHTML = active.map(function(t){ return renderTaskRow(t, today); }).join('');
+  document.getElementById('archived-list').innerHTML = archived.length
+    ? archived.map(function(t){ return renderTaskRow(t, today); }).join('')
+    : emptyHtml('完了したタスクはまだありません。');
+
+  bindTaskRowEvents();
+}
+
+function renderTaskRow(t, today){
+  const sc = subjectStyle(t.subject || 'その他');
+  const done = completedAmount(t);
+  const pct = t.totalAmount > 0 ? clampNum(Math.round(done/t.totalAmount*100),0,100) : 0;
+  const status = t.archived ? 'complete' : paceStatus(t, today);
+  const pl = PACE_LABEL[status];
+  const typeLabel = t.type === 'split' ? '小分け型' : '集中型';
+  return (
+    '<div class="task-row" style="border-left-color:'+sc.fg+'">'
+    + '<div class="info">'
+      + '<div class="name">'+escapeHtml(t.name)+'</div>'
+      + '<div class="meta">'
+        + '<span class="badge subject" style="background:'+sc.bg+';color:'+sc.fg+'">'+escapeHtml(t.subject||'その他')+'</span>'
+        + '<span>'+typeLabel+'</span>'
+        + '<span>締切 '+fmtShortDate(t.deadline)+'</span>'
+        + '<span class="badge" style="background:var(--'+pl.cls+'-soft);color:var(--'+pl.cls+')">'+pl.text+'</span>'
+      + '</div>'
+    + '</div>'
+    + '<div class="progress-bar-mini"><i style="width:'+pct+'%;background:'+sc.fg+'"></i></div>'
+    + '<div class="target">'+done+' / '+t.totalAmount+' '+escapeHtml(t.unit||'')+'</div>'
+    + '<div class="row-actions">'
+      + (t.archived ? '<button class="btn small" data-unarchive="'+t.id+'">再開</button>'
+                    : '<button class="btn small" data-archive="'+t.id+'">完了にする</button>')
+      + '<button class="btn ghost" data-delete="'+t.id+'" aria-label="削除">削除</button>'
+    + '</div>'
+    + '</div>'
+  );
+}
+
+function bindTaskRowEvents(){
+  document.querySelectorAll('[data-archive]').forEach(function(btn){
+    btn.onclick = function(){ toggleArchive(btn.getAttribute('data-archive'), true); };
+  });
+  document.querySelectorAll('[data-unarchive]').forEach(function(btn){
+    btn.onclick = function(){ toggleArchive(btn.getAttribute('data-unarchive'), false); };
+  });
+  document.querySelectorAll('[data-delete]').forEach(function(btn){
+    btn.onclick = function(){ deleteTask(btn.getAttribute('data-delete')); };
+  });
+}
+
+async function toggleArchive(id, val){
+  const t = TASKS.find(function(t){ return t.id === id; });
+  if(!t) return;
+  t.archived = val;
+  await saveTasks();
+  render();
+}
+async function deleteTask(id){
+  if(!confirm('このタスクを削除しますか？記録も失われます。')) return;
+  TASKS = TASKS.filter(function(t){ return t.id !== id; });
+  await saveTasks();
+  render();
+}
+
+function renderProgress(){
+  const today = todayStr();
+  const active = TASKS.filter(function(t){ return !t.archived; });
+  document.getElementById('stat-active').textContent = active.length;
+
+  let rateSum = 0, rateCount = 0;
+  active.forEach(function(t){
+    if(t.totalAmount > 0){ rateSum += clampNum(completedAmount(t)/t.totalAmount,0,1); rateCount++; }
+  });
+  document.getElementById('stat-rate').textContent = rateCount ? Math.round(rateSum/rateCount*100)+'%' : '0%';
+
+  const last7 = [];
+  for(let i=6;i>=0;i--){ last7.push(addDays(today, -i)); }
+  let daysWithRecord = 0;
+  last7.forEach(function(day){
+    const any = TASKS.some(function(t){ return typeof t.dailyLog[day] === 'number' && t.dailyLog[day] > 0; });
+    if(any) daysWithRecord++;
+  });
+  document.getElementById('stat-days').textContent = daysWithRecord;
+
+  document.getElementById('progress-empty').style.display = TASKS.length ? 'none' : 'block';
+  document.getElementById('progress-list').innerHTML = TASKS
+    .slice()
+    .sort(function(a,b){ return (a.archived - b.archived) || a.deadline.localeCompare(b.deadline); })
+    .map(function(t){ return renderProgressCard(t, today); }).join('');
+}
+
+function renderProgressCard(t, today){
+  const sc = subjectStyle(t.subject || 'その他');
+  const done = completedAmount(t);
+  const pct = t.totalAmount > 0 ? clampNum(Math.round(done/t.totalAmount*100),0,100) : 0;
+  const status = t.archived ? 'complete' : paceStatus(t, today);
+  const pl = PACE_LABEL[status];
+
+  const days = [];
+  for(let i=13;i>=0;i--){ days.push(addDays(today, -i)); }
+  const maxVal = Math.max(1, days.reduce(function(m,d){ return Math.max(m, t.dailyLog[d]||0); }, 0));
+  const bars = days.map(function(d){
+    const v = t.dailyLog[d] || 0;
+    const h = v > 0 ? Math.max(6, Math.round(v/maxVal*40)) : 2;
+    return '<div class="col'+(v>0?' has':'')+'" style="height:'+h+'px" title="'+fmtShortDate(d)+' : '+v+'"></div>';
+  }).join('');
+  const labels = days.map(function(d,idx){ return idx % 3 === 0 ? '<span>'+fmtShortDate(d)+'</span>' : '<span></span>'; }).join('');
+
+  return (
+    '<div class="detail-card">'
+    + '<div class="detail-head">'
+      + '<div>'
+        + '<span class="badge subject" style="background:'+sc.bg+';color:'+sc.fg+'">'+escapeHtml(t.subject||'その他')+'</span>'
+        + ' <span class="name">'+escapeHtml(t.name)+'</span>'
+      + '</div>'
+      + '<span class="badge" style="background:var(--'+pl.cls+'-soft);color:var(--'+pl.cls+')">'+pl.text+'</span>'
+    + '</div>'
+    + '<div class="meta">'+done+' / '+t.totalAmount+' '+escapeHtml(t.unit||'')+'（'+pct+'%）　締切 '+fmtShortDate(t.deadline)+'</div>'
+    + '<div class="progress-bar-mini" style="width:100%;margin-top:8px;"><i style="width:'+pct+'%;background:'+sc.fg+'"></i></div>'
+    + '<div class="daybars">'+bars+'</div>'
+    + '<div class="daylabels">'+labels+'</div>'
+    + '</div>'
+  );
+}
+
+/* ===================== フォーム ===================== */
+document.getElementById('f-submit').addEventListener('click', async function(){
+  const name = document.getElementById('f-name').value.trim();
+  const subject = document.getElementById('f-subject').value.trim();
+  const deadline = document.getElementById('f-deadline').value;
+  const type = document.querySelector('input[name="f-type"]:checked').value;
+  const amount = Number(document.getElementById('f-amount').value);
+  const unit = document.getElementById('f-unit').value.trim();
+  const errEl = document.getElementById('f-error');
+
+  if(!name){ errEl.textContent = 'タスク名を入力してください。'; return; }
+  if(!deadline){ errEl.textContent = '締切日を入力してください。'; return; }
+  if(deadline < todayStr()){ errEl.textContent = '締切日は今日以降の日付にしてください。'; return; }
+  if(!amount || amount <= 0){ errEl.textContent = '総量は1以上の数値で入力してください。'; return; }
+  errEl.textContent = '';
+
+  const task = {
+    id: uid(),
+    name: name,
+    subject: subject || 'その他',
+    type: type,
+    unit: unit || '個',
+    totalAmount: Math.round(amount),
+    createdDate: todayStr(),
+    deadline: deadline,
+    dailyLog: {},
+    archived: false,
+  };
+  TASKS.push(task);
+  await saveTasks();
+
+  document.getElementById('f-name').value = '';
+  document.getElementById('f-subject').value = '';
+  document.getElementById('f-deadline').value = '';
+  document.getElementById('f-amount').value = '';
+  document.getElementById('f-unit').value = '';
+
+  render();
+});
+
+document.getElementById('archived-toggle').addEventListener('click', function(){
+  const el = document.getElementById('archived-list');
+  const show = el.style.display === 'none';
+  el.style.display = show ? 'block' : 'none';
+  this.textContent = show ? '完了したタスクを隠す ▴' : '完了したタスクを表示 ▾';
+});
+
+/* ===================== ナビゲーション ===================== */
+document.getElementById('nav').addEventListener('click', function(e){
+  const btn = e.target.closest('button[data-view]');
+  if(!btn) return;
+  document.querySelectorAll('.nav button').forEach(function(b){ b.classList.remove('active'); });
+  btn.classList.add('active');
+  const view = btn.getAttribute('data-view');
+  document.querySelectorAll('.view').forEach(function(v){ v.classList.remove('active'); });
+  document.getElementById('view-'+view).classList.add('active');
+});
+
+/* ===================== 起動 ===================== */
+(async function init(){
+  TASKS = await loadTasks();
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('view-today').classList.add('active');
+  render();
+})();
+</script>
+</body>
+</html>
